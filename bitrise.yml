@@ -1,0 +1,145 @@
+format_version: "11"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+app:
+  envs:
+  - BITRISE_PROJECT_PATH: PerfDemo.xcodeproj
+  - BITRISE_SCHEME: PerfDemo (iOS)
+  - BITRISE_DISTRIBUTION_METHOD: development
+  - GIT_REPOSITORY_URL: https://github.com/irishabh96/perfDemo.git
+meta:
+  bitrise.io:
+    stack: osx-xcode-13.1.x
+workflows:
+  alexa:
+    description: |
+      The workflow executes the tests. The *retry_on_failure* test repetition mode is enabled.
+
+      Next steps:
+      - Check out [Getting started with iOS apps](https://devcenter.bitrise.io/en/getting-started/getting-started-with-ios-apps.html).
+    steps:
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1: {}
+    - xcode-build-for-test@2:
+        inputs:
+        - xcodebuild_options: -allowProvisioningUpdates
+        - apple_team_id: G8HXTSR55G
+    - xcode-archive@4: {}
+    - path::../../../../go/src/github.com/irishabh96/forked-bitrise-xcui:
+        inputs:
+        - browserstack_accesskey: $browserstack_accesskey
+        - android_app_under_test: $BITRISE_IPA_PATH
+        - espresso_test_suite: $BITRISE_TEST_BUNDLE_PATH
+        - devices_list: |-
+            iPhone 13-15.0
+            iPhone 12-14.0
+        - browserstack_username: $browserstack_username
+  deploy:
+    description: |
+      The workflow tests, builds and deploys the app using *Deploy to bitrise.io* step.
+
+      For testing the *retry_on_failure* test repetition mode is enabled.
+
+      Next steps:
+      - Set up [Connecting to an Apple service with API key](https://devcenter.bitrise.io/en/accounts/connecting-to-services/connecting-to-an-apple-service-with-api-key.html##).
+      - Or further customise code signing following our [iOS code signing](https://devcenter.bitrise.io/en/code-signing/ios-code-signing.html) guide.
+    steps:
+    - git-clone@6: {}
+    - cache-pull@2: {}
+    - xcode-test@4:
+        inputs:
+        - project_path: $BITRISE_PROJECT_PATH
+        - scheme: $BITRISE_SCHEME
+        - test_repetition_mode: retry_on_failure
+    - xcode-archive@4:
+        inputs:
+        - project_path: $BITRISE_PROJECT_PATH
+        - scheme: $BITRISE_SCHEME
+        - distribution_method: $BITRISE_DISTRIBUTION_METHOD
+        - automatic_code_signing: api-key
+    - cache-push@2: {}
+    - deploy-to-bitrise-io@2: {}
+  primary:
+    description: |
+      The workflow executes the tests. The *retry_on_failure* test repetition mode is enabled.
+
+      Next steps:
+      - Check out [Getting started with iOS apps](https://devcenter.bitrise.io/en/getting-started/getting-started-with-ios-apps.html).
+    steps:
+    - git-clone@6: {}
+    - certificate-and-profile-installer@1: {}
+    - xcode-build-for-test@2:
+        inputs:
+        - apple_team_id: G8HXTSR55G
+    - xcode-archive@4: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo "Hello World!"
+            echo "BITRISE_TEST_BUNDLE_PATH" $BITRISE_TEST_BUNDLE_PATH
+            echo "BITRISE_TEST_BUNDLE_ZIP_PATH" $BITRISE_TEST_BUNDLE_ZIP_PATH
+            echo "BITRISE_XCTESTRUN_FILE_PATH" $BITRISE_XCTESTRUN_FILE_PATH
+            echo "BITRISE_XCODE_RAW_RESULT_TEXT_PATH" $BITRISE_XCODE_RAW_RESULT_TEXT_PATH
+            echo "BITRISE_IPA_PATH" $BITRISE_IPA_PATH
+            echo "BROWSERSTACK_APP_URL" $BROWSERSTACK_APP_URL
+
+            ipa_path=$BITRISE_IPA_PATH
+            test_suite_path=$BITRISE_XCTESTRUN_FILE_PATH
+
+            unzip -o $BITRISE_TEST_BUNDLE_ZIP_PATH -d ~/test_p/
+
+            # cp $test_suite_path ./sample.xctestrun
+
+            cd /Users/vagrant/test_p/Debug-iphoneos;
+
+            zip -r ~/test_runner.zip 'Tests iOS-Runner.app'
+
+            test_suite_path="/Users/vagrant/test_runner.zip"
+
+            apk_upload_bs_request=$(curl -u "rishabhbhatia_OZ2u1M:e76ypTPaVtQnFyqhAWBn" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
+            -F "file=@$ipa_path")
+
+            echo $apk_upload_bs_request
+
+            bs_app_url=`echo "$apk_upload_bs_request" | awk -F ',' '{sub(/"app_url":/,""); print $2; }' | tr -d '"'`
+
+            echo "BS App hashed_id -> $bs_app_url"
+
+            test_apk_upload_bs_request=$(curl -u "rishabhbhatia_OZ2u1M:e76ypTPaVtQnFyqhAWBn" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/test-suite" \
+            -F "file=@$test_suite_path")
+
+            echo $test_apk_upload_bs_request
+
+            bs_test_app_url=`echo "$test_apk_upload_bs_request" | awk -F ',' '{sub(/"test_suite_url":/,""); print $2; }' | tr -d '"'`
+
+            build_request_bs=$(curl -u "rishabhbhatia_OZ2u1M:e76ypTPaVtQnFyqhAWBn" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/build" \
+            -d '{"app": "'"$bs_app_url"'", "testSuite": "'"$bs_test_app_url"'", "devices": ["iPhone 11-14"]}' \
+            -H "Content-Type: application/json")
+
+            echo $build_request_bs
+
+            bs_build=`echo "$build_request_bs" | awk -F ',' '{sub(/"build_id":/,""); print $2; }' | tr -d '"}'`
+
+            echo "\nBuild Id -> $bs_build"
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
