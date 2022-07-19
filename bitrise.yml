@@ -28,8 +28,8 @@ workflows:
     - path::../../../../go/src/github.com/irishabh96/forked-bitrise-xcui:
         inputs:
         - browserstack_accesskey: $browserstack_accesskey
-        - android_app_under_test: $BITRISE_IPA_PATH
-        - espresso_test_suite: $BITRISE_TEST_BUNDLE_PATH
+        - app_ipa_path: $BITRISE_IPA_PATH
+        - xcui_test_suite: $BITRISE_TEST_BUNDLE_PATH
         - devices_list: |-
             iPhone 13-15.0
             iPhone 12-14.0
