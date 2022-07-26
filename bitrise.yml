@@ -11,6 +11,51 @@ meta:
   bitrise.io:
     stack: osx-xcode-13.1.x
 workflows:
+  test:
+    description: |
+      The workflow executes the tests. The *retry_on_failure* test repetition mode is enabled.
+
+      Next steps:
+      - Check out [Getting started with iOS apps](https://devcenter.bitrise.io/en/getting-started/getting-started-with-ios-apps.html).
+    steps:
+    - path::../../../../go/src/github.com/irishabh96/browserstack-bitrise-xcui-step:
+        inputs:
+        - browserstack_accesskey: $browserstack_accesskey
+        - app_ipa_path: /Users/rishabh/Downloads/AWSDeviceFarmiOSReferenceApp.ipa
+        - xcui_test_suite: /Users/rishabh/Downloads/AWSDeviceFarmiOSReferenceAppUITestsSwift-Runner.app
+        - devices_list: |-
+            iPhone 13-15.0
+            iPhone 12-14.0
+        - browserstack_username: $browserstack_username
+        - instrumentation_logs: "true"
+        - network_logs: "true"
+        - device_logs: "true"
+        - debug_screenshots: "true"
+        - video_recording: "true"
+        - project: Hello Bitrise XCUI
+        - use_dynamic_tests: "false"
+        - api_params: ""
+        - check_build_status: "false"
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # make pipelines' return status equal the last command to exit with a non-zero status, or zero if all commands exit successfully
+            set -o pipefail
+            # debug log
+            set -x
+
+            # write your script here
+            echo "Hello World!"
+            echo $BROWSERSTACK_BUILD_URL
+            echo $BROWSERSTACK_BUILD_STATUS
+
+            # or run a script from your repository, like:
+            # bash ./path/to/script.sh
+            # not just bash, e.g.:
+            # ruby ./path/to/script.rb
   alexa:
     description: |
       The workflow executes the tests. The *retry_on_failure* test repetition mode is enabled.
@@ -25,7 +70,7 @@ workflows:
         - xcodebuild_options: -allowProvisioningUpdates
         - apple_team_id: G8HXTSR55G
     - xcode-archive@4: {}
-    - path::../../../../go/src/github.com/irishabh96/forked-bitrise-xcui:
+    - path::../../../../go/src/github.com/irishabh96/browserstack-bitrise-xcui-step:
         inputs:
         - browserstack_accesskey: $browserstack_accesskey
         - app_ipa_path: $BITRISE_IPA_PATH
@@ -34,6 +79,15 @@ workflows:
             iPhone 13-15.0
             iPhone 12-14.0
         - browserstack_username: $browserstack_username
+        - instrumentation_logs: "true"
+        - network_logs: "true"
+        - device_logs: "true"
+        - debug_screenshots: "true"
+        - video_recording: "true"
+        - project: Hello Bitrise XCUI
+        - use_dynamic_tests: "false"
+        - api_params: ""
+        - check_build_status: "false"
   deploy:
     description: |
       The workflow tests, builds and deploys the app using *Deploy to bitrise.io* step.
